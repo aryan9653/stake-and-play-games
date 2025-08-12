@@ -61,6 +61,8 @@ export const useProfile = () => {
 
     if (!error) {
       setProfile(data);
+      // Force a refresh to ensure UI updates
+      setTimeout(() => fetchProfile(), 100);
     }
     return { data, error };
   };

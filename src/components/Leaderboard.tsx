@@ -110,33 +110,33 @@ export const Leaderboard = () => {
       </CardHeader>
       <CardContent>
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="p-4 rounded-lg bg-gradient-primary/10 border border-primary/20">
-            <div className="flex items-center gap-3">
-              <Trophy className="w-8 h-8 text-primary" />
-              <div>
-                <p className="text-sm text-muted-foreground">Total Matches</p>
-                <p className="text-2xl font-bold text-primary">1,234</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
+          <div className="p-3 sm:p-4 rounded-lg bg-gradient-primary/10 border border-primary/20">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Trophy className="w-6 h-6 sm:w-8 sm:h-8 text-primary flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-muted-foreground">Total Matches</p>
+                <p className="text-lg sm:text-2xl font-bold text-primary">1,234</p>
               </div>
             </div>
           </div>
           
-          <div className="p-4 rounded-lg bg-gradient-accent/10 border border-accent/20">
-            <div className="flex items-center gap-3">
-              <Coins className="w-8 h-8 text-accent" />
-              <div>
-                <p className="text-sm text-muted-foreground">GT Distributed</p>
-                <p className="text-2xl font-bold text-accent">456,789</p>
+          <div className="p-3 sm:p-4 rounded-lg bg-gradient-accent/10 border border-accent/20">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Coins className="w-6 h-6 sm:w-8 sm:h-8 text-accent flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-muted-foreground">GT Distributed</p>
+                <p className="text-lg sm:text-2xl font-bold text-accent font-mono">456K</p>
               </div>
             </div>
           </div>
           
-          <div className="p-4 rounded-lg bg-gradient-gaming/10 border border-gaming-purple/20">
-            <div className="flex items-center gap-3">
-              <Award className="w-8 h-8 text-gaming-purple" />
-              <div>
-                <p className="text-sm text-muted-foreground">Active Players</p>
-                <p className="text-2xl font-bold text-gaming-purple">2,547</p>
+          <div className="p-3 sm:p-4 rounded-lg bg-gradient-gaming/10 border border-gaming-purple/20">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Award className="w-6 h-6 sm:w-8 sm:h-8 text-gaming-purple flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-muted-foreground">Active Players</p>
+                <p className="text-lg sm:text-2xl font-bold text-gaming-purple">2,547</p>
               </div>
             </div>
           </div>
@@ -158,16 +158,16 @@ export const Leaderboard = () => {
               }`}
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  {getRankIcon(index)}
-                  <div>
-                    <div className="flex items-center gap-3 mb-1">
-                      <code className="text-sm font-mono font-semibold">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                  <div className="flex-shrink-0">{getRankIcon(index)}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mb-1">
+                      <code className="text-xs sm:text-sm font-mono font-semibold truncate">
                         {entry.address}
                       </code>
-                      {getRankBadge(index)}
+                      <div className="flex-shrink-0">{getRankBadge(index)}</div>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                       <span>{entry.wins} wins</span>
                       <span>{entry.matchesPlayed} matches</span>
                       <span className="text-accent font-medium">
@@ -177,16 +177,16 @@ export const Leaderboard = () => {
                   </div>
                 </div>
                 
-                <div className="text-right">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Coins className="w-4 h-4 text-accent" />
-                    <span className="text-xl font-bold font-mono text-accent">
+                <div className="text-right flex-shrink-0">
+                  <div className="flex items-center gap-1 sm:gap-2 mb-1 justify-end">
+                    <Coins className="w-3 h-3 sm:w-4 sm:h-4 text-accent" />
+                    <span className="text-base sm:text-xl font-bold font-mono text-accent">
                       {entry.totalGTWon.toLocaleString()}
                     </span>
-                    <span className="text-sm text-muted-foreground">GT</span>
+                    <span className="text-xs sm:text-sm text-muted-foreground">GT</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Avg: {(entry.totalGTWon / entry.wins).toFixed(0)} GT/win
+                    Avg: {(entry.totalGTWon / entry.wins).toFixed(0)} GT/
                   </p>
                 </div>
               </div>
