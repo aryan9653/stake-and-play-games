@@ -24,8 +24,25 @@ export const useAuth = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signInAnonymously = async () => {
-    const { data, error } = await supabase.auth.signInAnonymously();
+  const signIn = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    return { data, error };
+  };
+
+  const signUp = async (email: string, password: string) => {
+    const redirectUrl = `${window.location.origin}/`;
+    
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: redirectUrl
+      }
+    });
+    
     if (!error && data.user) {
       // Create profile if it doesn't exist
       const { error: profileError } = await supabase
@@ -42,5 +59,5 @@ export const useAuth = () => {
 
   const signOut = () => supabase.auth.signOut();
 
-  return { user, loading, signInAnonymously, signOut };
+  return { user, loading, signIn, signUp, signOut };
 };

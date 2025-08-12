@@ -9,12 +9,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
+import { AuthModal } from "./AuthModal";
 
 export const TokenPurchase = () => {
   const [usdtAmount, setUsdtAmount] = useState("");
   const [loading, setLoading] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
   const { toast } = useToast();
-  const { user, signInAnonymously } = useAuth();
+  const { user } = useAuth();
   const { profile, updateBalance } = useProfile();
 
   const calculateGT = (usdt: string) => {
@@ -84,22 +86,8 @@ export const TokenPurchase = () => {
     }
   };
 
-  const handleSignIn = async () => {
-    setLoading(true);
-    const { error } = await signInAnonymously();
-    if (error) {
-      toast({
-        title: "Sign In Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Connected! 🔗",
-        description: "Account created successfully",
-      });
-    }
-    setLoading(false);
+  const handleOpenAuth = () => {
+    setAuthModalOpen(true);
   };
 
   return (
@@ -125,8 +113,8 @@ export const TokenPurchase = () => {
             </span>
           </div>
           {!user && (
-            <Button variant="outline" size="sm" onClick={handleSignIn} disabled={loading}>
-              {loading ? "..." : "Connect"}
+            <Button variant="outline" size="sm" onClick={handleOpenAuth}>
+              Connect
             </Button>
           )}
           {user && profile && (
@@ -206,6 +194,8 @@ export const TokenPurchase = () => {
             </div>
           </div>
         )}
+
+        <AuthModal open={authModalOpen} onOpenChange={setAuthModalOpen} />
       </CardContent>
     </Card>
   );
