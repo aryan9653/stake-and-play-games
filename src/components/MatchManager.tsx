@@ -1,308 +1,326 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Gamepad2, Users, Trophy, Clock, Coins } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Swords, Trophy, Clock, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-interface Match {
-  id: string;
-  player1: string;
-  player2: string;
-  stake: number;
-  status: "created" | "staked" | "settled" | "refunded";
-  winner?: string;
-  startTime?: number;
-}
+import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
+import { supabase } from "@/integrations/supabase/client";
 
 export const MatchManager = () => {
-  const [matches, setMatches] = useState<Match[]>([
-    {
-      id: "match_001",
-      player1: "0x1234...5678",
-      player2: "0x8765...4321",
-      stake: 50,
-      status: "staked",
-      startTime: Date.now() - 30 * 60 * 1000, // 30 minutes ago
-    },
-    {
-      id: "match_002",
-      player1: "0xabcd...efgh",
-      player2: "0xijkl...mnop",
-      stake: 100,
-      status: "created",
-    },
-  ]);
-
-  const [newMatch, setNewMatch] = useState({
-    matchId: "",
-    player1: "",
-    player2: "",
-    stake: "",
-  });
-
-  const [stakeMatchId, setStakeMatchId] = useState("");
-  const [resultData, setResultData] = useState({
-    matchId: "",
-    winner: "",
-  });
-
+  const [activeMatch, setActiveMatch] = useState<any>(null);
+  const [matches, setMatches] = useState<any[]>([]);
+  const [stakeAmount, setStakeAmount] = useState("");
+  const [selectedWinner, setSelectedWinner] = useState("");
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { profile, updateBalance } = useProfile();
 
-  const createMatch = () => {
-    if (!newMatch.matchId || !newMatch.player1 || !newMatch.player2 || !newMatch.stake) {
+  useEffect(() => {
+    if (user) {
+      fetchMatches();
+    }
+  }, [user]);
+
+  const fetchMatches = async () => {
+    if (!profile) return;
+
+    const { data, error } = await supabase
+      .from('matches')
+      .select(`
+        *,
+        player1:profiles!matches_player1_id_fkey(wallet_address),
+        player2:profiles!matches_player2_id_fkey(wallet_address),
+        winner:profiles!matches_winner_id_fkey(wallet_address)
+      `)
+      .or(`player1_id.eq.${profile.id},player2_id.eq.${profile.id}`)
+      .order('created_at', { ascending: false });
+
+    if (!error) {
+      setMatches(data || []);
+    }
+  };
+
+  const createMatch = async () => {
+    if (!user || !profile) {
       toast({
-        title: "Missing Information",
-        description: "Please fill in all match details",
+        title: "Not Authenticated",
+        description: "Please sign in first",
         variant: "destructive",
       });
       return;
     }
 
-    const match: Match = {
-      id: newMatch.matchId,
-      player1: newMatch.player1,
-      player2: newMatch.player2,
-      stake: parseFloat(newMatch.stake),
-      status: "created",
-    };
-
-    setMatches([...matches, match]);
-    setNewMatch({ matchId: "", player1: "", player2: "", stake: "" });
-    
-    toast({
-      title: "Match Created! 🎮",
-      description: `Match ${match.id} created with ${match.stake} GT stake`,
-    });
-  };
-
-  const stakeMatch = () => {
-    if (!stakeMatchId) return;
-
-    setMatches(matches.map(match => {
-      if (match.id === stakeMatchId && match.status === "created") {
-        return {
-          ...match,
-          status: "staked" as const,
-          startTime: Date.now(),
-        };
-      }
-      return match;
-    }));
-
-    toast({
-      title: "Stake Placed! 💰",
-      description: `Both players staked for match ${stakeMatchId}`,
-    });
-    setStakeMatchId("");
-  };
-
-  const submitResult = () => {
-    if (!resultData.matchId || !resultData.winner) return;
-
-    setMatches(matches.map(match => {
-      if (match.id === resultData.matchId && match.status === "staked") {
-        return {
-          ...match,
-          status: "settled" as const,
-          winner: resultData.winner,
-        };
-      }
-      return match;
-    }));
-
-    const match = matches.find(m => m.id === resultData.matchId);
-    if (match) {
+    if (!stakeAmount || parseFloat(stakeAmount) <= 0) {
       toast({
-        title: "Match Settled! 🏆",
-        description: `Winner receives ${match.stake * 2} GT`,
+        title: "Invalid Stake",
+        description: "Please enter a valid stake amount",
+        variant: "destructive",
       });
+      return;
     }
+
+    const stakeValue = parseFloat(stakeAmount);
+    if (stakeValue > Number(profile.gt_balance)) {
+      toast({
+        title: "Insufficient Balance",
+        description: "Not enough GT balance for this stake",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
     
-    setResultData({ matchId: "", winner: "" });
+    try {
+      const matchId = `MATCH_${Date.now()}`;
+      const { data, error } = await supabase
+        .from('matches')
+        .insert({
+          match_id: matchId,
+          player1_id: profile.id,
+          stake_amount: stakeValue,
+          status: 'CREATED',
+        })
+        .select(`
+          *,
+          player1:profiles!matches_player1_id_fkey(wallet_address),
+          player2:profiles!matches_player2_id_fkey(wallet_address)
+        `)
+        .single();
+
+      if (error) throw error;
+
+      setActiveMatch(data);
+      await fetchMatches();
+      
+      toast({
+        title: "Match Created! ⚔️",
+        description: `Created match with ${stakeAmount} GT stake`,
+      });
+      
+      setStakeAmount("");
+    } catch (error: any) {
+      toast({
+        title: "Match Creation Failed",
+        description: error.message || "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getStatusBadge = (status: Match["status"]) => {
-    const variants = {
-      created: "bg-gaming-orange/20 text-gaming-orange",
-      staked: "bg-primary/20 text-primary",
-      settled: "bg-accent/20 text-accent",
-      refunded: "bg-gaming-red/20 text-gaming-red",
-    };
+  const submitResult = async () => {
+    if (!selectedWinner || !activeMatch || !profile) {
+      toast({
+        title: "Invalid Selection",
+        description: "Please select a winner",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    const labels = {
-      created: "Created",
-      staked: "Active",
-      settled: "Settled",
-      refunded: "Refunded",
-    };
+    setLoading(true);
+    
+    try {
+      const winnerId = selectedWinner === 'player1' ? activeMatch.player1_id : activeMatch.player2_id;
+      const isCurrentUserWinner = winnerId === profile.id;
+      
+      // Update match status
+      const { error: matchError } = await supabase
+        .from('matches')
+        .update({
+          status: 'SETTLED',
+          winner_id: winnerId,
+          settled_at: new Date().toISOString(),
+        })
+        .eq('id', activeMatch.id);
 
-    return (
-      <Badge variant="secondary" className={variants[status]}>
-        {labels[status]}
-      </Badge>
-    );
+      if (matchError) throw matchError;
+
+      // Update winner's balance
+      if (isCurrentUserWinner) {
+        const winAmount = Number(activeMatch.stake_amount) * 2;
+        await updateBalance(winAmount, 0);
+        
+        // Record win transaction
+        await supabase.from('transactions').insert({
+          user_id: profile.id,
+          type: 'WIN',
+          gt_amount: winAmount,
+          match_id: activeMatch.id,
+        });
+      }
+
+      await fetchMatches();
+      
+      toast({
+        title: "Result Submitted! 🏆",
+        description: `Match settled, winner receives ${Number(activeMatch.stake_amount) * 2} GT`,
+      });
+      
+      setActiveMatch(null);
+      setSelectedWinner("");
+    } catch (error: any) {
+      toast({
+        title: "Submit Failed",
+        description: error.message || "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <Card className="bg-card border-border shadow-elegant">
       <CardHeader>
-        <CardTitle className="flex items-center gap-3 text-2xl">
+        <CardTitle className="flex items-center gap-3 text-xl sm:text-2xl">
           <div className="p-2 rounded-lg bg-gradient-gaming">
-            <Gamepad2 className="w-6 h-6 text-white" />
+            <Swords className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
           </div>
-          Match Manager
+          <span className="text-base sm:text-2xl">Match Management</span>
         </CardTitle>
-        <p className="text-muted-foreground">
-          Create matches, stake tokens, and submit results
+        <p className="text-muted-foreground text-sm sm:text-base">
+          Create matches and submit results
         </p>
       </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="create" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="create">Create Match</TabsTrigger>
-            <TabsTrigger value="stake">Stake Tokens</TabsTrigger>
-            <TabsTrigger value="results">Submit Results</TabsTrigger>
+      <CardContent className="space-y-4 sm:space-y-6">
+        <Tabs defaultValue="create" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 text-xs sm:text-sm">
+            <TabsTrigger value="create" className="text-xs sm:text-sm">Create Match</TabsTrigger>
+            <TabsTrigger value="result" className="text-xs sm:text-sm">Submit Result</TabsTrigger>
           </TabsList>
 
           <TabsContent value="create" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="match-id">Match ID</Label>
-                <Input
-                  id="match-id"
-                  placeholder="match_003"
-                  value={newMatch.matchId}
-                  onChange={(e) => setNewMatch({ ...newMatch, matchId: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="stake-amount">Stake Amount (GT)</Label>
-                <Input
-                  id="stake-amount"
-                  type="number"
-                  placeholder="100"
-                  value={newMatch.stake}
-                  onChange={(e) => setNewMatch({ ...newMatch, stake: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="player1">Player 1 Address</Label>
-                <Input
-                  id="player1"
-                  placeholder="0x..."
-                  value={newMatch.player1}
-                  onChange={(e) => setNewMatch({ ...newMatch, player1: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="player2">Player 2 Address</Label>
-                <Input
-                  id="player2"
-                  placeholder="0x..."
-                  value={newMatch.player2}
-                  onChange={(e) => setNewMatch({ ...newMatch, player2: e.target.value })}
-                />
-              </div>
-            </div>
-            <Button variant="gaming" size="lg" className="w-full" onClick={createMatch}>
-              <Users className="w-5 h-5" />
-              Create Match
-            </Button>
-          </TabsContent>
-
-          <TabsContent value="stake" className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="stake-match-id">Match ID to Stake</Label>
+              <Label htmlFor="stake-amount" className="text-sm font-medium">
+                Stake Amount (GT)
+              </Label>
               <Input
-                id="stake-match-id"
-                placeholder="Select a match ID"
-                value={stakeMatchId}
-                onChange={(e) => setStakeMatchId(e.target.value)}
+                id="stake-amount"
+                type="number"
+                placeholder="50"
+                value={stakeAmount}
+                onChange={(e) => setStakeAmount(e.target.value)}
+                className="text-base"
+                disabled={!user}
               />
             </div>
-            <Button variant="accent" size="lg" className="w-full" onClick={stakeMatch}>
-              <Coins className="w-5 h-5" />
-              Stake Tokens
+            <Button 
+              variant="hero" 
+              className="w-full text-sm sm:text-base"
+              onClick={createMatch}
+              disabled={loading || !user}
+            >
+              <Swords className="w-4 h-4 sm:w-5 sm:h-5" />
+              {loading ? "Creating..." : "Create Match"}
             </Button>
           </TabsContent>
 
-          <TabsContent value="results" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="result-match-id">Match ID</Label>
-                <Input
-                  id="result-match-id"
-                  placeholder="match_001"
-                  value={resultData.matchId}
-                  onChange={(e) => setResultData({ ...resultData, matchId: e.target.value })}
-                />
+          <TabsContent value="result" className="space-y-4">
+            {activeMatch ? (
+              <>
+                <div className="p-3 sm:p-4 rounded-lg bg-secondary border">
+                  <h4 className="font-medium mb-2 text-sm sm:text-base">Active Match: {activeMatch.match_id}</h4>
+                  <p className="text-sm text-muted-foreground">Stake: {activeMatch.stake_amount} GT</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Select Winner</Label>
+                  <Select value={selectedWinner} onValueChange={setSelectedWinner}>
+                    <SelectTrigger className="text-sm">
+                      <SelectValue placeholder="Choose winner" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="player1">
+                        Player 1 ({activeMatch.player1?.wallet_address?.slice(0, 6)}...{activeMatch.player1?.wallet_address?.slice(-4)})
+                      </SelectItem>
+                      <SelectItem value="player2">
+                        Player 2 (Waiting for opponent...)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button 
+                  variant="gold" 
+                  className="w-full text-sm sm:text-base"
+                  onClick={submitResult}
+                  disabled={!selectedWinner || loading}
+                >
+                  <Trophy className="w-4 h-4 sm:w-5 sm:h-5" />
+                  {loading ? "Submitting..." : "Submit Result"}
+                </Button>
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground text-sm">No active match to settle</p>
+                <p className="text-xs text-muted-foreground mt-1">Create a match first</p>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="winner-address">Winner Address</Label>
-                <Input
-                  id="winner-address"
-                  placeholder="0x..."
-                  value={resultData.winner}
-                  onChange={(e) => setResultData({ ...resultData, winner: e.target.value })}
-                />
-              </div>
-            </div>
-            <Button variant="gold" size="lg" className="w-full" onClick={submitResult}>
-              <Trophy className="w-5 h-5" />
-              Submit Result
-            </Button>
+            )}
           </TabsContent>
         </Tabs>
 
-        {/* Active Matches */}
-        <div className="mt-8 space-y-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Clock className="w-5 h-5" />
-            Active Matches
-          </h3>
-          <div className="space-y-3">
-            {matches.map((match) => (
-              <div
-                key={match.id}
-                className="p-4 rounded-lg border border-border bg-secondary/50"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <code className="px-2 py-1 text-xs bg-muted rounded font-mono">
-                      {match.id}
-                    </code>
-                    {getStatusBadge(match.status)}
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-muted-foreground">Stake</p>
-                    <p className="font-mono font-semibold text-accent">
-                      {match.stake} GT
-                    </p>
-                  </div>
+        {/* Active Match Display */}
+        {activeMatch && (
+          <div className="mt-4 sm:mt-6 p-3 sm:p-4 rounded-lg bg-secondary border border-border">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold flex items-center gap-2 text-sm sm:text-base">
+                <Clock className="w-4 h-4" />
+                Active Match
+              </h3>
+              <Badge variant="outline" className="bg-gaming-purple/20 text-gaming-purple text-xs">
+                {activeMatch.status}
+              </Badge>
+            </div>
+            <div className="space-y-2 text-xs sm:text-sm">
+              <p><span className="text-muted-foreground">Match ID:</span> {activeMatch.match_id}</p>
+              <p><span className="text-muted-foreground">Stake:</span> {activeMatch.stake_amount} GT</p>
+              <div className="grid grid-cols-2 gap-2 sm:gap-4 mt-3">
+                <div className="text-center p-2 rounded bg-card">
+                  <p className="text-xs text-muted-foreground">Player 1</p>
+                  <p className="font-mono text-xs sm:text-sm">{activeMatch.player1?.wallet_address?.slice(0, 6)}...{activeMatch.player1?.wallet_address?.slice(-4)}</p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Player 1</p>
-                    <code className="text-foreground">{match.player1}</code>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Player 2</p>
-                    <code className="text-foreground">{match.player2}</code>
-                  </div>
+                <div className="text-center p-2 rounded bg-card">
+                  <p className="text-xs text-muted-foreground">Player 2</p>
+                  <p className="font-mono text-xs sm:text-sm">{activeMatch.player2?.wallet_address ? `${activeMatch.player2.wallet_address.slice(0, 6)}...${activeMatch.player2.wallet_address.slice(-4)}` : "Waiting..."}</p>
                 </div>
-                {match.winner && (
-                  <div className="mt-3 p-2 rounded bg-accent/10 border border-accent/20">
-                    <p className="text-sm text-accent">
-                      🏆 Winner: <code>{match.winner}</code>
-                    </p>
-                  </div>
-                )}
               </div>
-            ))}
+            </div>
+          </div>
+        )}
+
+        {/* Recent Matches */}
+        <div className="mt-4 sm:mt-6">
+          <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm sm:text-base">
+            <Users className="w-4 h-4" />
+            Your Matches
+          </h3>
+          <div className="space-y-2 sm:space-y-3 max-h-64 overflow-y-auto">
+            {matches.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4 text-sm">No matches yet</p>
+            ) : (
+              matches.map((match) => (
+                <div key={match.id} className="p-3 rounded-lg bg-secondary border border-border">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-mono text-xs sm:text-sm">{match.match_id}</span>
+                    <Badge variant={match.status === "SETTLED" ? "default" : "secondary"} className="text-xs">
+                      {match.status}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                    <span>Stake: {match.stake_amount} GT</span>
+                    <span>{match.status === "SETTLED" && match.winner ? `Winner: ${match.winner.wallet_address?.slice(0, 6)}...` : match.status}</span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </CardContent>

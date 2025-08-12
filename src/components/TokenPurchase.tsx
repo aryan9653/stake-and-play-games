@@ -6,22 +6,27 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Coins, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
+import { supabase } from "@/integrations/supabase/client";
 
 export const TokenPurchase = () => {
   const [usdtAmount, setUsdtAmount] = useState("");
-  const [isConnected, setIsConnected] = useState(false);
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { user, signInAnonymously } = useAuth();
+  const { profile, updateBalance } = useProfile();
 
   const calculateGT = (usdt: string) => {
     const amount = parseFloat(usdt) || 0;
     return amount; // 1:1 ratio for demo
   };
 
-  const handlePurchase = () => {
-    if (!isConnected) {
+  const handlePurchase = async () => {
+    if (!user || !profile) {
       toast({
-        title: "Wallet Not Connected",
-        description: "Please connect your wallet first",
+        title: "Not Authenticated",
+        description: "Please sign in first",
         variant: "destructive",
       });
       return;
@@ -36,57 +41,103 @@ export const TokenPurchase = () => {
       return;
     }
 
-    toast({
-      title: "Purchase Successful! 🎮",
-      description: `Converted ${usdtAmount} USDT to ${calculateGT(usdtAmount)} GT`,
-    });
-    setUsdtAmount("");
+    const usdtValue = parseFloat(usdtAmount);
+    if (usdtValue > Number(profile.usdt_balance)) {
+      toast({
+        title: "Insufficient Balance",
+        description: "Not enough USDT balance",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      // Update balances
+      const { error: balanceError } = await updateBalance(usdtValue, usdtValue);
+      
+      if (balanceError) throw balanceError;
+
+      // Record transaction
+      await supabase.from('transactions').insert({
+        user_id: profile.id,
+        type: 'PURCHASE',
+        usdt_amount: usdtValue,
+        gt_amount: usdtValue,
+      });
+
+      toast({
+        title: "Purchase Successful! 🎮",
+        description: `Converted ${usdtAmount} USDT to ${calculateGT(usdtAmount)} GT`,
+      });
+      
+      setUsdtAmount("");
+    } catch (error: any) {
+      toast({
+        title: "Purchase Failed",
+        description: error.message || "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const connectWallet = () => {
-    setIsConnected(true);
-    toast({
-      title: "Wallet Connected! 🔗",
-      description: "0x1234...5678 connected successfully",
-    });
+  const handleSignIn = async () => {
+    setLoading(true);
+    const { error } = await signInAnonymously();
+    if (error) {
+      toast({
+        title: "Sign In Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Connected! 🔗",
+        description: "Account created successfully",
+      });
+    }
+    setLoading(false);
   };
 
   return (
     <Card className="bg-card border-border shadow-elegant">
       <CardHeader>
-        <CardTitle className="flex items-center gap-3 text-2xl">
+        <CardTitle className="flex items-center gap-3 text-xl sm:text-2xl">
           <div className="p-2 rounded-lg bg-gradient-primary">
-            <Coins className="w-6 h-6 text-white" />
+            <Coins className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
           </div>
-          Buy Game Tokens
+          <span className="text-base sm:text-2xl">Buy Game Tokens</span>
         </CardTitle>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground text-sm sm:text-base">
           Convert USDT to GT at 1:1 ratio
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Wallet Connection */}
-        <div className="flex items-center justify-between p-4 rounded-lg bg-secondary">
-          <div className="flex items-center gap-3">
+        {/* Authentication Status */}
+        <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg bg-secondary">
+          <div className="flex items-center gap-2 sm:gap-3">
             <div className="w-3 h-3 rounded-full bg-accent animate-pulse" />
-            <span className="font-medium">
-              {isConnected ? "Wallet Connected" : "Connect Wallet"}
+            <span className="font-medium text-sm sm:text-base">
+              {user ? "Connected" : "Connect Account"}
             </span>
           </div>
-          {!isConnected && (
-            <Button variant="outline" size="sm" onClick={connectWallet}>
-              Connect
+          {!user && (
+            <Button variant="outline" size="sm" onClick={handleSignIn} disabled={loading}>
+              {loading ? "..." : "Connect"}
             </Button>
           )}
-          {isConnected && (
-            <Badge variant="secondary" className="bg-accent text-accent-foreground">
-              0x1234...5678
+          {user && profile && (
+            <Badge variant="secondary" className="bg-accent text-accent-foreground text-xs sm:text-sm">
+              {profile.wallet_address?.slice(0, 6)}...{profile.wallet_address?.slice(-4)}
             </Badge>
           )}
         </div>
 
         {/* Exchange Input */}
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <div className="space-y-2">
             <Label htmlFor="usdt-amount" className="text-sm font-medium">
               USDT Amount
@@ -99,15 +150,16 @@ export const TokenPurchase = () => {
                 placeholder="0.00"
                 value={usdtAmount}
                 onChange={(e) => setUsdtAmount(e.target.value)}
-                className="pl-10"
+                className="pl-10 text-base"
+                disabled={!user}
               />
             </div>
           </div>
 
           {/* Exchange Arrow */}
-          <div className="flex justify-center">
+          <div className="flex justify-center py-2">
             <div className="p-2 rounded-full bg-gradient-primary">
-              <ArrowRight className="w-5 h-5 text-white" />
+              <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
           </div>
 
@@ -116,8 +168,8 @@ export const TokenPurchase = () => {
             <Label className="text-sm font-medium">You'll Receive</Label>
             <div className="p-3 rounded-lg bg-secondary border border-border">
               <div className="flex items-center gap-2">
-                <Coins className="w-5 h-5 text-accent" />
-                <span className="text-xl font-mono font-semibold">
+                <Coins className="w-4 h-4 sm:w-5 sm:h-5 text-accent" />
+                <span className="text-lg sm:text-xl font-mono font-semibold">
                   {calculateGT(usdtAmount).toFixed(2)} GT
                 </span>
               </div>
@@ -129,25 +181,27 @@ export const TokenPurchase = () => {
         <Button 
           variant="hero" 
           size="lg" 
-          className="w-full"
+          className="w-full text-sm sm:text-base"
           onClick={handlePurchase}
-          disabled={!isConnected}
+          disabled={!user || loading}
         >
-          <Coins className="w-5 h-5" />
-          Purchase Game Tokens
+          <Coins className="w-4 h-4 sm:w-5 sm:h-5" />
+          {loading ? "Processing..." : "Purchase Game Tokens"}
         </Button>
 
         {/* Balance Display */}
-        {isConnected && (
-          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
+        {user && profile && (
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 pt-4 border-t border-border">
             <div className="text-center">
-              <p className="text-sm text-muted-foreground">USDT Balance</p>
-              <p className="text-lg font-semibold font-mono">1,250.00</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">USDT Balance</p>
+              <p className="text-base sm:text-lg font-semibold font-mono">
+                {Number(profile.usdt_balance).toFixed(2)}
+              </p>
             </div>
             <div className="text-center">
-              <p className="text-sm text-muted-foreground">GT Balance</p>
-              <p className="text-lg font-semibold font-mono text-accent">
-                847.50
+              <p className="text-xs sm:text-sm text-muted-foreground">GT Balance</p>
+              <p className="text-base sm:text-lg font-semibold font-mono text-accent">
+                {Number(profile.gt_balance).toFixed(2)}
               </p>
             </div>
           </div>

@@ -71,20 +71,20 @@ const Index = () => {
       </section>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 pb-16">
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-          {/* Left Column - Token Purchase */}
-          <div className="xl:col-span-1">
+      <main className="container mx-auto px-4 pb-8 sm:pb-16">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
+          {/* Token Purchase */}
+          <div className="lg:col-span-1 xl:col-span-1">
             <TokenPurchase />
           </div>
 
-          {/* Middle Column - Match Manager */}
-          <div className="xl:col-span-1">
+          {/* Match Manager */}
+          <div className="lg:col-span-1 xl:col-span-1">
             <MatchManager />
           </div>
 
-          {/* Right Column - Leaderboard */}
-          <div className="xl:col-span-1">
+          {/* Leaderboard */}
+          <div className="lg:col-span-2 xl:col-span-1">
             <Leaderboard />
           </div>
         </div>
