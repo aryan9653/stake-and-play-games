@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { useWallet } from './useWallet';
+import { cleanupAuthState } from '@/lib/auth-utils';
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -27,10 +28,27 @@ export const useAuth = () => {
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    // Clean up existing state before signing in
+    cleanupAuthState();
+    
+    try {
+      await supabase.auth.signOut({ scope: 'global' });
+    } catch (err) {
+      // Continue even if this fails
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    
+    if (data.user && !error) {
+      // Force page reload for clean state
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 100);
+    }
+    
     return { data, error };
   };
 
@@ -59,10 +77,28 @@ export const useAuth = () => {
     return { data, error };
   };
 
-  const signOut = () => supabase.auth.signOut();
+  const signOut = async () => {
+    try {
+      cleanupAuthState();
+      await supabase.auth.signOut({ scope: 'global' });
+    } catch (err) {
+      // Ignore errors
+    }
+    // Force page reload for clean state
+    window.location.href = '/';
+  };
 
   const signInWithWallet = async () => {
     if (!account) return { data: null, error: { message: 'No wallet connected' } };
+    
+    // Clean up existing state
+    cleanupAuthState();
+    
+    try {
+      await supabase.auth.signOut({ scope: 'global' });
+    } catch (err) {
+      // Continue even if this fails
+    }
     
     // Create or get user with wallet address as email
     const walletEmail = `${account.toLowerCase()}@wallet.local`;
@@ -74,6 +110,13 @@ export const useAuth = () => {
     if (error && error.message.includes('Invalid login credentials')) {
       // User doesn't exist, create account
       return await signUpWithWallet();
+    }
+    
+    if (data.user && !error) {
+      // Force page reload for clean state
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 100);
     }
     
     return { data, error };
@@ -104,6 +147,11 @@ export const useAuth = () => {
         });
       
       if (profileError) console.error('Profile creation error:', profileError);
+      
+      // Force page reload for clean state
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 100);
     }
     
     return { data, error };

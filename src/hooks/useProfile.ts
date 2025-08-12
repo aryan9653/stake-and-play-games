@@ -27,11 +27,17 @@ export const useProfile = () => {
 
     if (error && error.code === 'PGRST116') {
       // Profile doesn't exist, create it
+      // Check if user has wallet address in metadata
+      const walletAddress = user.user_metadata?.wallet_address || 
+                           (user.email?.includes('@wallet.local') ? 
+                            user.email.replace('@wallet.local', '') : 
+                            `0x${Math.random().toString(16).substr(2, 40)}`);
+      
       const { data: newProfile, error: createError } = await supabase
         .from('profiles')
         .insert({
           user_id: user.id,
-          wallet_address: `0x${Math.random().toString(16).substr(2, 40)}`,
+          wallet_address: walletAddress,
         })
         .select()
         .single();
