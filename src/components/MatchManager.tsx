@@ -194,9 +194,10 @@ export const MatchManager = () => {
       </CardHeader>
       <CardContent className="space-y-4 sm:space-y-6">
         <Tabs defaultValue="create" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 text-xs sm:text-sm">
+          <TabsList className="grid w-full grid-cols-3 text-xs sm:text-sm">
             <TabsTrigger value="create" className="text-xs sm:text-sm">Create Match</TabsTrigger>
             <TabsTrigger value="result" className="text-xs sm:text-sm">Submit Result</TabsTrigger>
+            <TabsTrigger value="history" className="text-xs sm:text-sm">History</TabsTrigger>
           </TabsList>
 
           <TabsContent value="create" className="space-y-4">
@@ -265,6 +266,57 @@ export const MatchManager = () => {
               </div>
             )}
           </TabsContent>
+
+          <TabsContent value="history" className="space-y-4">
+            <div className="space-y-3 max-h-80 overflow-y-auto">
+              {matches.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground text-sm">No match history</p>
+                  <p className="text-xs text-muted-foreground mt-1">Your completed matches will appear here</p>
+                </div>
+              ) : (
+                matches.map((match) => (
+                  <div key={match.id} className="p-3 sm:p-4 rounded-lg bg-secondary border border-border">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="font-mono text-xs sm:text-sm font-medium">{match.match_id}</span>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={match.status === "SETTLED" ? "default" : "secondary"} className="text-xs">
+                          {match.status}
+                        </Badge>
+                        {match.status === "SETTLED" && match.winner && (
+                          <Badge variant="outline" className="text-xs bg-accent/20 text-accent">
+                            {match.winner_id === profile?.id ? "WON" : "LOST"}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-xs">
+                      <div>
+                        <p className="text-muted-foreground mb-1">Stake Amount</p>
+                        <p className="font-medium">{match.stake_amount} GT</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground mb-1">Date</p>
+                        <p className="font-medium">{new Date(match.created_at).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    {match.status === "SETTLED" && match.winner && (
+                      <div className="mt-3 pt-3 border-t border-border">
+                        <p className="text-xs text-muted-foreground">
+                          Winner: {match.winner.wallet_address?.slice(0, 6)}...{match.winner.wallet_address?.slice(-4)}
+                        </p>
+                        {match.winner_id === profile?.id && (
+                          <p className="text-xs text-accent mt-1">
+                            Earned: {Number(match.stake_amount) * 2} GT
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </TabsContent>
         </Tabs>
 
         {/* Active Match Display */}
@@ -289,7 +341,7 @@ export const MatchManager = () => {
                 </div>
                 <div className="text-center p-2 rounded bg-card">
                   <p className="text-xs text-muted-foreground">Player 2</p>
-                  <p className="font-mono text-xs sm:text-sm">{activeMatch.player2?.wallet_address ? `${activeMatch.player2.wallet_address.slice(0, 6)}...${activeMatch.player2.wallet_address.slice(-4)}` : "Waiting..."}</p>
+                  <p className="font-mono text-xs sm:text-sm text-muted-foreground">Waiting...</p>
                 </div>
               </div>
             </div>
