@@ -8,6 +8,7 @@ import { ArrowRight, Coins, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
+import { useWallet } from "@/hooks/useWallet";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthModal } from "./AuthModal";
 
@@ -18,6 +19,7 @@ export const TokenPurchase = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { profile, updateBalance } = useProfile();
+  const { account, isConnected, formatAddress } = useWallet();
 
   const calculateGT = (usdt: string) => {
     const amount = parseFloat(usdt) || 0;
@@ -119,7 +121,8 @@ export const TokenPurchase = () => {
           )}
           {user && profile && (
             <Badge variant="secondary" className="bg-accent text-accent-foreground text-xs sm:text-sm">
-              {profile.wallet_address?.slice(0, 6)}...{profile.wallet_address?.slice(-4)}
+              {isConnected && account ? formatAddress(account) : 
+               profile.wallet_address?.slice(0, 6) + '...' + profile.wallet_address?.slice(-4)}
             </Badge>
           )}
         </div>

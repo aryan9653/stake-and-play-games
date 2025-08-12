@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Mail, Lock, User } from "lucide-react";
+import { Mail, Lock, User, Wallet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useWallet } from "@/hooks/useWallet";
 
 interface AuthModalProps {
   open: boolean;
@@ -18,7 +19,8 @@ export const AuthModal = ({ open, onOpenChange }: AuthModalProps) => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, signInWithWallet } = useAuth();
+  const { connectWallet, account, isConnected, formatAddress } = useWallet();
 
   const handleSignIn = async () => {
     if (!email || !password) {
@@ -82,6 +84,31 @@ export const AuthModal = ({ open, onOpenChange }: AuthModalProps) => {
     setLoading(false);
   };
 
+  const handleWalletConnect = async () => {
+    if (!isConnected) {
+      await connectWallet();
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await signInWithWallet();
+    
+    if (error) {
+      toast({
+        title: "Wallet Sign In Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Welcome Back! 🦊",
+        description: "Successfully signed in with MetaMask",
+      });
+      onOpenChange(false);
+    }
+    setLoading(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md bg-card border-border">
@@ -93,6 +120,29 @@ export const AuthModal = ({ open, onOpenChange }: AuthModalProps) => {
             Create an account or sign in to start gaming
           </DialogDescription>
         </DialogHeader>
+
+        {/* MetaMask Connection */}
+        <div className="space-y-4">
+          <Button 
+            onClick={handleWalletConnect}
+            className="w-full bg-gradient-primary hover:bg-gradient-primary/90"
+            disabled={loading}
+          >
+            <Wallet className="w-4 h-4 mr-2" />
+            {loading ? "Connecting..." : 
+             !isConnected ? "Connect MetaMask" : 
+             `Sign in with ${formatAddress(account!)}`}
+          </Button>
+          
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">Or continue with email</span>
+            </div>
+          </div>
+        </div>
 
         <Tabs defaultValue="signin" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
