@@ -1,73 +1,214 @@
-# Welcome to your Lovable project
+# 🎮 GameStake Protocol
 
-## Project info
+**Complete blockchain gaming platform with smart contract escrow, token exchange, and automated payouts**
 
-**URL**: https://lovable.dev/projects/bd08e975-9945-45f2-bc74-4e0b9a9e438f
+## 🏗️ Architecture
 
-## How can I edit this code?
+A full-stack gaming platform built with:
 
-There are several ways of editing your application.
+- **Frontend**: React + TypeScript + Tailwind CSS
+- **Smart Contracts**: Solidity (Hardhat framework)
+- **Backend**: Node.js + Express + ethers.js
+- **Database**: In-memory/SQLite for leaderboards
+- **Blockchain**: Ethereum-compatible networks
 
-**Use Lovable**
+## 📁 Project Structure
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/bd08e975-9945-45f2-bc74-4e0b9a9e438f) and start prompting.
+```
+gamestake-protocol/
+├── contracts/           # Smart contracts
+│   ├── GameToken.sol   # ERC-20 gaming token
+│   ├── TokenStore.sol  # USDT → GT exchange
+│   ├── PlayGame.sol    # Match escrow system
+│   └── deploy.js       # Deployment script
+├── api/                # Backend gateway
+├── tools/              # Event indexer & leaderboard
+├── src/                # React frontend
+└── README.md          # This file
+```
 
-Changes made via Lovable will be committed automatically to this repo.
+## 🔥 Key Features
 
-**Use your preferred IDE**
+### Smart Contracts
+- **GameToken (GT)**: ERC-20 token with 18 decimals, controlled minting
+- **TokenStore**: Secure USDT to GT conversion at 1:1 ratio
+- **PlayGame**: Match escrow with automated winner payouts
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Frontend
+- **Token Purchase**: Buy GT with USDT through web interface
+- **Match Manager**: Create matches, stake tokens, submit results
+- **Live Leaderboard**: Real-time player rankings and statistics
+- **Wallet Integration**: Connect wallet simulation with balance tracking
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Backend
+- **Purchase API**: `/purchase?amount=USDT` - Convert USDT to GT
+- **Match API**: `/match/start` - Create and coordinate matches
+- **Results API**: `/match/result` - Submit results and trigger payouts
 
-Follow these steps:
+### Leaderboard System
+- **Event Monitoring**: Listen to all contract events
+- **Player Stats**: Track wins, GT earned, match history
+- **Live Rankings**: Sort by total GT won
+- **Recent Activity**: Show latest match results
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## 🚀 Quick Start
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### 1. Smart Contract Deployment
 
-# Step 3: Install the necessary dependencies.
-npm i
+```bash
+# Install dependencies
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Set up environment
+cp .env.example .env
+# Edit .env with your RPC URL and private key
+
+# Deploy contracts
+npx hardhat run contracts/deploy.js --network mainnet
+
+# Verify on Etherscan
+npx hardhat verify CONTRACT_ADDRESS --network mainnet
+```
+
+### 2. Backend Setup
+
+```bash
+cd api/
+npm install
+
+# Configure environment
+export ETHEREUM_RPC_URL="https://mainnet.infura.io/v3/YOUR_KEY"
+export GAME_TOKEN_ADDRESS="0x..."
+export TOKEN_STORE_ADDRESS="0x..."
+export PLAY_GAME_ADDRESS="0x..."
+export PRIVATE_KEY="0x..."
+
+# Start API server
+npm start
+```
+
+### 3. Leaderboard Service
+
+```bash
+cd tools/
+node leaderboard.js
+```
+
+### 4. Frontend Development
+
+```bash
+# Start React development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## 📊 Smart Contract Flow
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Token Purchase Flow
+1. User approves USDT spend to TokenStore
+2. Call `TokenStore.buy(usdtAmount)`
+3. Contract pulls USDT, mints GT to user
+4. Event: `Purchase(buyer, usdtAmount, gtOut)`
 
-**Use GitHub Codespaces**
+### Match Flow
+1. Admin calls `PlayGame.createMatch(id, p1, p2, stake)`
+2. Both players call `PlayGame.stake(matchId)` 
+3. When both staked, match status = STAKED
+4. Backend calls `PlayGame.commitResult(matchId, winner)`
+5. Winner receives `2 × stake` GT automatically
+6. Event: `Settled(matchId, winner, totalPayout)`
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Security Features
+- **ReentrancyGuard**: All state-changing functions protected
+- **Access Control**: Only authorized addresses can submit results
+- **CEI Pattern**: Checks-Effects-Interactions order maintained
+- **Idempotency**: Double-submit protection on all critical functions
+- **Timeout Refunds**: Players can reclaim stakes after 24h if no result
 
-## What technologies are used for this project?
+## 🔒 Security Checklist
 
-This project is built with:
+✅ **USDT → GT**: 1 USDT mints exactly 1e18 GT  
+✅ **Escrow**: Both stakes required before match becomes STAKED  
+✅ **Payout**: Winner receives exactly 2 × stake; loser's GT unchanged  
+✅ **Double-submit safe**: Second commitResult reverts (status guard)  
+✅ **Refund**: Works only after timeout and before a result  
+✅ **Events**: Emitted for all critical actions; reader shows leaderboard  
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 🛠️ Development
 
-## How can I deploy this project?
+### Running Tests
+```bash
+npx hardhat test
+```
 
-Simply open [Lovable](https://lovable.dev/projects/bd08e975-9945-45f2-bc74-4e0b9a9e438f) and click on Share -> Publish.
+### Local Development
+```bash
+# Start local Hardhat network
+npx hardhat node
 
-## Can I connect a custom domain to my Lovable project?
+# Deploy to local network
+npx hardhat run contracts/deploy.js --network localhost
 
-Yes, you can!
+# Start all services
+npm run dev        # Frontend
+npm run api        # Backend
+npm run leaderboard # Event indexer
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### Environment Variables
+```bash
+# Blockchain
+ETHEREUM_RPC_URL=https://mainnet.infura.io/v3/YOUR_PROJECT_ID
+PRIVATE_KEY=0x...
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+# Contract Addresses (set after deployment)
+GAME_TOKEN_ADDRESS=0x...
+TOKEN_STORE_ADDRESS=0x...
+PLAY_GAME_ADDRESS=0x...
+USDT_ADDRESS=0xdAC17F958D2ee523a2206206994597C13D831ec7
+
+# API
+PORT=3001
+LEADERBOARD_PORT=3002
+```
+
+## 📈 Production Deployment
+
+### Smart Contracts
+1. Deploy to mainnet/testnet using verified Hardhat scripts
+2. Verify contracts on Etherscan
+3. Set up multi-sig for contract ownership
+4. Fund operator address with ETH for gas
+
+### Backend Services
+1. Deploy API to cloud provider (AWS/GCP/Heroku)
+2. Set up Redis for caching player stats
+3. Use PostgreSQL for persistent leaderboard data
+4. Monitor with logging (Winston/DataDog)
+
+### Frontend
+1. Build production React app: `npm run build`
+2. Deploy to CDN (Netlify/Vercel/Cloudflare)
+3. Configure custom domain
+4. Set up analytics and monitoring
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push branch: `git push origin feature/amazing-feature`
+5. Open Pull Request
+
+## 📜 License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+- **Discord**: [GameStake Community](https://discord.gg/gamestake)
+- **Docs**: [docs.gamestake.io](https://docs.gamestake.io)
+- **Email**: [support@gamestake.io](mailto:support@gamestake.io)
+
+---
+
+**Built with ❤️ for the future of blockchain gaming**
