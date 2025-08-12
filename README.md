@@ -211,4 +211,3 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-**Built with ❤️ for the future of blockchain gaming**
