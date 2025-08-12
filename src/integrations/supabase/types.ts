@@ -14,7 +14,139 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      matches: {
+        Row: {
+          created_at: string
+          id: string
+          match_id: string
+          player1_id: string | null
+          player2_id: string | null
+          settled_at: string | null
+          stake_amount: number
+          status: string
+          winner_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          match_id: string
+          player1_id?: string | null
+          player2_id?: string | null
+          settled_at?: string | null
+          stake_amount: number
+          status?: string
+          winner_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          match_id?: string
+          player1_id?: string | null
+          player2_id?: string | null
+          settled_at?: string | null
+          stake_amount?: number
+          status?: string
+          winner_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matches_player1_id_fkey"
+            columns: ["player1_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_player2_id_fkey"
+            columns: ["player2_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_winner_id_fkey"
+            columns: ["winner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          gt_balance: number
+          id: string
+          updated_at: string
+          usdt_balance: number
+          user_id: string
+          wallet_address: string | null
+        }
+        Insert: {
+          created_at?: string
+          gt_balance?: number
+          id?: string
+          updated_at?: string
+          usdt_balance?: number
+          user_id: string
+          wallet_address?: string | null
+        }
+        Update: {
+          created_at?: string
+          gt_balance?: number
+          id?: string
+          updated_at?: string
+          usdt_balance?: number
+          user_id?: string
+          wallet_address?: string | null
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          created_at: string
+          gt_amount: number | null
+          id: string
+          match_id: string | null
+          type: string
+          usdt_amount: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          gt_amount?: number | null
+          id?: string
+          match_id?: string | null
+          type: string
+          usdt_amount?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          gt_amount?: number | null
+          id?: string
+          match_id?: string | null
+          type?: string
+          usdt_amount?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
